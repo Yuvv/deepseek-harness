@@ -82,6 +82,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   const [displayName, setDisplayName] = useState('')
   const [baseURL, setBaseURL] = useState('')
   const [protocol, setProtocol] = useState(protocols[0] ?? '')
+  const [disableNativeReplay, setDisableNativeReplay] = useState(false)
   const [keyDraft, setKeyDraft] = useState('')
   const [models, setModels] = useState<readonly ModelDraft[]>([])
   const [busy, setBusy] = useState(false)
@@ -142,6 +143,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         ...storesKey ? { apiKeyEnv: keyRef } : {},
         api: protocol,
         baseURL,
+        ...disableNativeReplay && protocol === 'openai-responses' ? { nativeReplay: false } : {},
         models: models.map(model => ({ ...model })),
       }
       const response = await api.settings.mutate({
@@ -245,6 +247,21 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
         </select>
       </div>
+      {protocol === 'openai-responses'
+        ? (
+          <label className={styles['checkField']}>
+            <input
+              type="checkbox"
+              checked={disableNativeReplay}
+              disabled={profileDisabled}
+              aria-label={t('nativeReplayDisable')}
+              onChange={(event) => { setDisableNativeReplay(event.target.checked) }}
+            />
+            <span>{t('nativeReplayDisable')}</span>
+            <span className={styles['advancedHint']}>{t('nativeReplayHint')}</span>
+          </label>
+        )
+        : null}
       <div className={styles['field']}>
         <span className={styles['fieldLabel']}>{t('keyInput')}</span>
         <input

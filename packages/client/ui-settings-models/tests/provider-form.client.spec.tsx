@@ -26,6 +26,7 @@ const PiAiConfig = Schema.object({
     displayName: Schema.string(),
     api: Schema.union(PROTOCOLS),
     baseURL: Schema.string(),
+    nativeReplay: Schema.boolean(),
     models: Schema.array(Schema.object({
       id: Schema.string().required(),
       name: Schema.string(),
@@ -857,6 +858,30 @@ describe('hand-declared providers', () => {
     })
   })
 
+  it('edits native replay on a declared Responses route', async () => {
+    const { mutate } = await mountSection({
+      providers: {
+        'acme-gateway': {
+          api: 'openai-responses',
+          baseURL: 'https://gateway.acme.example/v1',
+          models: [{ id: 'acme-large' }],
+        },
+      },
+      declaredRoutes: ['acme-gateway'],
+    })
+    openEditor('acme-gateway')
+
+    fireEvent.click(screen.getByLabelText(en.nativeReplayDisable))
+    fireEvent.click(screen.getByText(en.apply))
+
+    await waitFor(() => { expect(mutate).toHaveBeenCalledTimes(1) })
+    expect(firstMutate(mutate)).toEqual({
+      ns: 'llm-pi-ai',
+      ops: [{ op: 'set', path: ['providers', 'acme-gateway', 'nativeReplay'], value: false }],
+      expectedRevision: 3,
+    })
+  })
+
   it('selects nothing for a declared route whose profile names no protocol', async () => {
     // A route hand-written into settings.yaml with no model needs no protocol
     // to resolve, so the card can be opened over one. The select must not read
@@ -1153,6 +1178,26 @@ describe('hand-declared providers', () => {
     expect(firstMutate(mutate).ops[0]?.value).toEqual({
       api: 'anthropic-messages',
       baseURL: 'https://acme.test/v1',
+      models: [{ id: 'm' }],
+    })
+  })
+
+  it('creates a Responses route with native replay disabled', async () => {
+    const { mutate, onClose } = mountCard()
+
+    fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
+    fireEvent.change(screen.getByLabelText(en.baseUrl), { target: { value: 'https://acme.test/v1' } })
+    fireEvent.change(screen.getByLabelText(en.customApi), { target: { value: 'openai-responses' } })
+    fireEvent.click(screen.getByRole('button', { name: en.addModel }))
+    fireEvent.change(screen.getByLabelText(`${en.modelId} 1`), { target: { value: 'm' } })
+    fireEvent.click(screen.getByLabelText(en.nativeReplayDisable))
+    fireEvent.click(screen.getByText(en.create))
+
+    await waitFor(() => { expect(onClose).toHaveBeenCalledWith(true) })
+    expect(firstMutate(mutate).ops[0]?.value).toEqual({
+      api: 'openai-responses',
+      baseURL: 'https://acme.test/v1',
+      nativeReplay: false,
       models: [{ id: 'm' }],
     })
   })

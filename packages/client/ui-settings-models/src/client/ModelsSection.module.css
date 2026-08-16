@@ -297,6 +297,24 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+.checkField {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: start;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.checkField input {
+  margin-top: 3px;
+}
+
+.checkField .advancedHint {
+  grid-column: 2;
+}
+
 .editorActions {
   display: flex;
   justify-content: flex-end;

@@ -34,6 +34,8 @@ import type {
 import {
   attributionHeaders,
   contentHasImage,
+  deepFreeze,
+  freezeMessage,
   LlmAdapter,
   LlmError,
   ReasoningEffortId,
@@ -43,6 +45,7 @@ import type {
   LlmModelInfo,
   LlmProviderInfo,
   LlmResolvedModelInfo,
+  Message,
   ReasoningEffortId as ReasoningEffortIdType,
   ResolvedRetryPolicy,
   StreamChunk,
@@ -178,6 +181,25 @@ function requestHeaders(headers: Readonly<Record<string, string>> | undefined): 
   }
 }
 
+/** Remove adapter-private assistant replay data while preserving provider/model provenance. */
+function stripNativeReplay(message: Message): Message {
+  const source = message.source
+  if (message.role !== 'assistant' || source.kind !== 'model' || source.replayState === undefined) return message
+  return freezeMessage({
+    ...message,
+    source: { kind: 'model', provider: source.provider, model: source.model },
+  })
+}
+
+/** Apply the provider's native-replay policy to a request before pi-ai conversion. */
+function requestForProfile(options: GenerateOptions, profile: ResolvedPiAiProviderProfile): GenerateOptions {
+  if (profile.nativeReplay !== false) return options
+  const messages = options.messages.map(stripNativeReplay)
+  if (messages.every((message, index) => message === options.messages[index])) return options
+  const stripped = { ...options, messages }
+  return Object.isFrozen(options) ? deepFreeze(stripped) : stripped
+}
+
 /**
  * pi-ai-backed multi-provider adapter. Each operation reads the current
  * profiles, so a configuration change reaches the next request without a
@@ -307,9 +329,10 @@ export class PiAiAdapter extends LlmAdapter {
       if (containsImage && attachments === undefined) {
         throw new LlmError('pi-ai image input requires the durable attachment service', 'UNSUPPORTED_CONTENT')
       }
+      const request = requestForProfile(options, profile)
       const context = attachments === undefined
-        ? toPiContext(options)
-        : await toPiContext(options, attachments)
+        ? toPiContext(request)
+        : await toPiContext(request, attachments)
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },

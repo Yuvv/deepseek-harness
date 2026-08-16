@@ -130,6 +130,12 @@ export interface PiAiProviderProfile {
   cacheRetention?: CacheRetention
   /** Streaming transport preference. */
   transport?: Transport
+  /**
+   * Whether provider-native assistant replay metadata is returned on later
+   * requests. Set `false` for OpenAI-compatible gateways that accept Responses
+   * payloads but cannot verify encrypted reasoning or signature state.
+   */
+  nativeReplay?: boolean
   /** HTTP/provider SDK timeout in milliseconds. */
   timeoutMs?: number
   /** WebSocket connection timeout in milliseconds. */
@@ -245,6 +251,7 @@ const profile = z.object({
   thinkingBudgets,
   cacheRetention: z.union(['none', 'short', 'long']),
   transport: z.union(['sse', 'websocket', 'websocket-cached', 'auto']),
+  nativeReplay: z.boolean(),
   timeoutMs: z.natural(),
   websocketConnectTimeoutMs: z.natural(),
   streamIdleTimeoutMs: z.number().min(Number.MIN_VALUE).max(MAX_TIMER_DELAY_MS).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),

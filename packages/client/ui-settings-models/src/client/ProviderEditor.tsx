@@ -228,6 +228,12 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     ...probeApi === undefined ? {} : { api: probeApi },
     ...keyValue.length === 0 ? {} : { apiKey: keyValue },
   }
+  const nativeReplayDisabled = getPath(draft, ['nativeReplay']) === false
+  const setNativeReplayDisabled = (disabled: boolean): void => {
+    setDraft(current => disabled
+      ? setPath(current, ['nativeReplay'], false)
+      : deletePath(current, ['nativeReplay']))
+  }
   /**
    * The write for this card, or a failure message. Every edit travels as
    * path ops against the STORED section: the draft comes from the redacted
@@ -445,6 +451,21 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                     {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
                   </select>
                 </div>
+              )
+              : null}
+            {ownsIdentity && probeApi === 'openai-responses'
+              ? (
+                <label className={styles['checkField']}>
+                  <input
+                    type="checkbox"
+                    checked={nativeReplayDisabled}
+                    disabled={disabled}
+                    aria-label={t('nativeReplayDisable')}
+                    onChange={(event) => { setNativeReplayDisabled(event.target.checked) }}
+                  />
+                  <span>{t('nativeReplayDisable')}</span>
+                  <span className={styles['advancedHint']}>{t('nativeReplayHint')}</span>
+                </label>
               )
               : null}
             {/* Both families edit the same rows through the same contract; only

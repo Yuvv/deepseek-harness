@@ -7,7 +7,7 @@ import type {
   SaveImageAttachment,
   StoredImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
-import LlmRuntime, { createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, ReasoningEffortId, userAgent } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { createMessage, createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, ReasoningEffortId, userAgent } from '@deepseek-ai/dsh-llm'
 import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
@@ -196,6 +196,52 @@ describe('PiAiAdapter provider routing', () => {
     const result = await assemble(ctx, { provider: 'openai', model: 'gpt-4.1', messages: [] })
     expect(result.finish.kind).toBe('error')
     expect(server.paths).toEqual(['/v1/responses'])
+  })
+
+  it('omits native replay metadata when a provider disables it', async () => {
+    const server = await mockServer([{ status: 401, body: JSON.stringify({ error: { message: 'expected mock failure' } }) }])
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    await ctx.plugin(LlmPiAi, {
+      providers: {
+        openai: {
+          apiKeyEnv: 'PI_TEST_KEY',
+          baseURL: `${server.url}/v1`,
+          nativeReplay: false,
+        },
+      },
+    })
+
+    const result = await assemble(ctx, {
+      provider: 'openai',
+      model: 'gpt-4.1',
+      messages: [createMessage({
+        role: 'assistant',
+        content: [{ type: 'text', text: 'historical answer' }],
+        source: {
+          kind: 'model',
+          provider: 'openai',
+          model: 'gpt-4.1',
+          replayState: {
+            kind: 'pi-ai',
+            version: 1,
+            api: 'openai-responses',
+            provider: 'openai',
+            model: 'gpt-4.1',
+            responseId: 'resp_123',
+            stopReason: 'stop',
+            blocks: [{ type: 'text', textSignature: 'signed-text' }],
+          },
+        },
+      })],
+    })
+
+    expect(result.finish.kind).toBe('error')
+    expect(server.paths).toEqual(['/v1/responses'])
+    const body = JSON.stringify(server.requests[0])
+    expect(body).toContain('historical answer')
+    expect(body).not.toContain('resp_123')
+    expect(body).not.toContain('signed-text')
   })
 
   it('resolves an attachment service mounted after the adapter when dispatching an image', async () => {
